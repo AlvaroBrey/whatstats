@@ -202,3 +202,5 @@ if __name__ == '__main__':
     print('')
     print('Most common words')
     print_rank(common_words, total=wc, limit=25)
+
+    client.drop_database('whatstats')
