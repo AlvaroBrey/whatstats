@@ -7,11 +7,7 @@ from datetime import datetime
 
 from pymongo import MongoClient
 
-INVALID_WORDS = [
-    'y', 'o', 'el', 'la', 'los', 'las', 'a', 'con', 'de', 'desde', 'en', 'entre', 'hacia', 'hasta', 'para', 'por',
-    'sin', 'que', 'no', 'yo', 'es', 'si', 'lo', 'me', 'un', 'una', 'unos', 'unas', 'pero', 'se', 'mi', 'ya', 'te', 'al',
-    'tu', 'como', 'donde', 'hay', 'eso', 'del'
-]
+INVALID_WORDS = []
 
 
 def get_type(type_message):
@@ -28,10 +24,12 @@ def get_type(type_message):
         return 'video'
     elif type_message == '<‎vCard omitida>':
         return 'vCard'
+    elif type_message == '<Media omitted>':
+        return 'generic_media'
     return ''
 
 
-def process_input(db, filename):
+def process_input_ios(db, filename):
     with io.open(chat_file, buffering=2) as fp:
         chars = {}
         lc = mc = fc = wc = 0
@@ -72,7 +70,7 @@ def process_input(db, filename):
                     words = content.split()
                     for word in words:
                         w = re.sub(r'\W+', '', word.lower())
-                        if w not in INVALID_WORDS and len(w) > 0:
+                        if w not in INVALID_WORDS and len(w) > 1:
                             db.words.insert_one(
                                 {
                                     'date': dt,
@@ -94,7 +92,76 @@ def process_input(db, filename):
                     fc += 1
             lc += 1
             if lc % 500 == 0:
-                print('Processed ' + str(lc) + ' messages')
+                print('Processed ' + str(lc) + ' lines')
+
+        fp.close()
+        return lc, mc, fc, wc, chars
+
+
+def process_input_android(db, filename):
+    with io.open(chat_file, buffering=2) as fp:
+        chars = {}
+        lc = mc = fc = wc = 0
+        for line in fp:
+            clean = line.strip()
+
+            first_split = clean.split('-', 1)
+
+            if len(first_split) != 2:
+                # todo deal with multiline messages
+                continue
+            date = first_split[0].strip()
+            try:
+                dt = datetime.strptime(date, '%d/%m/%y, %H:%M')
+            except:
+                continue
+            rest = first_split[1].strip()
+            sp = rest.split(':', 1)
+
+            if len(sp) == 2:  # message, else leaving/joining/etc
+                content = sp[1].strip()
+                t = get_type(content)
+                author = sp[0].strip()
+                if not t:
+                    db.messages.insert_one(
+                        {
+                            'date': dt,
+                            'author': author,
+                            'content': content
+                        }
+                    )
+
+                    if author in chars:
+                        chars[author] += len(content)
+                    else:
+                        chars[author] = len(content)
+
+                    words = content.split()
+                    for word in words:
+                        w = re.sub(r'\W+', '', word.lower())
+                        if w not in INVALID_WORDS and len(w) > 1:
+                            db.words.insert_one(
+                                {
+                                    'date': dt,
+                                    'author': author,
+                                    'word': w
+                                }
+                            )
+                            wc += 1
+
+                    mc += 1
+                else:
+                    db.files.insert_one(
+                        {
+                            'date': dt,
+                            'author': author,
+                            'type': t
+                        }
+                    )
+                    fc += 1
+            lc += 1
+            if lc % 500 == 0:
+                print('Processed ' + str(lc) + ' lines')
 
         fp.close()
         return lc, mc, fc, wc, chars
@@ -110,21 +177,36 @@ def print_rank(m_rank, limit=-1, total=-1):
             break
 
 
+def read_invalid_words():
+    with open('invalid_words.dat') as fp:
+        for line in fp:
+            INVALID_WORDS.append(line.strip())
+        fp.close()
+
+
 if __name__ == '__main__':
 
     client = MongoClient()
     # clear data
     client.drop_database('whatstats')
 
+    read_invalid_words()
+
     db = client['whatstats']
 
-    if len(sys.argv) != 2:
-        print('Need exactly one argument (file to read)')
-        sys.exit(-1)
+    if len(sys.argv) != 3:
+        print('Need exactly two arguments (file to read and format)')
+        sys.exit(1)
 
     chat_file = sys.argv[1]
 
-    (lc, mc, fc, wc, chars) = process_input(db, chat_file)
+    if sys.argv[2] == 'ios':
+        (lc, mc, fc, wc, chars) = process_input_ios(db, chat_file)
+    elif sys.argv[2] == 'android':
+        (lc, mc, fc, wc, chars) = process_input_android(db, chat_file)
+    else:
+        print('Format can only be "android" or "ios"')
+        sys.exit(2)
 
     messages_rank = db.messages.aggregate(
         [
@@ -200,7 +282,7 @@ if __name__ == '__main__':
     )
 
     print('')
-    print('Most common words')
+    print('Most common words (excluding prepositions etc)')
     print_rank(common_words, total=wc, limit=25)
 
     client.drop_database('whatstats')

@@ -149,4 +149,4 @@ fabric.properties
 
 # End of https://www.gitignore.io/api/python,pycharm
 
-chat.txt
+*.txt
