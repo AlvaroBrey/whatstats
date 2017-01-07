@@ -1,13 +1,10 @@
 # coding=utf-8
-from __future__ import print_function
-from __future__ import division
-
 import io
+import operator
 import re
 import sys
 from datetime import datetime
 
-import operator
 from pymongo import MongoClient
 
 INVALID_WORDS = [
@@ -23,13 +20,13 @@ def get_type(type_message):
     :param type_message:
     :rtype:str
     """
-    if type_message == u'<‎imagen omitida>':
+    if type_message == '<‎imagen omitida>':
         return 'image'
-    elif type_message == u'<audio omitido>':
+    elif type_message == '<audio omitido>':
         return 'audio'
-    elif type_message == u'<‎Video omitido>':
+    elif type_message == '<‎Video omitido>':
         return 'video'
-    elif type_message == u'<‎vCard omitida>':
+    elif type_message == '<‎vCard omitida>':
         return 'vCard'
     return ''
 
@@ -162,7 +159,7 @@ if __name__ == '__main__':
     print_rank(files_rank, total=fc)
 
     charcount = 0
-    for key, value in chars.iteritems():
+    for key, value in chars.items():
         charcount += value
     print('')
     print('Characters rank (total: ' + str(charcount) + ' characters)')
