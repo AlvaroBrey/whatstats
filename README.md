@@ -8,9 +8,10 @@ Simple stats for whatsapp group chats
 
 ## Usage:
 ```
-  python whatstats.py chat.txt
+  python whatstats.py chat.txt format
 ```
-where `chat.txt` is a chat exported through WhatsApp 'send by email' functionality.
+`chat.txt` is a chat exported through WhatsApp 'send by email' functionality.
+`format` is either `android` or `ios`, depending which OS was used to export the chat.
 
 Currently **only spanish language** and **only chats with no media attachments** are supported.
 
